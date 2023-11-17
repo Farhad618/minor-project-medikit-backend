@@ -4,6 +4,7 @@ require('./db/config');
 var mongoose = require('mongoose');
 const User = require('./db/User');
 const Schedule = require('./db/Schedule');
+const moment = require('moment'); // for time
 // const Product = require('./db/Product');
 // const User = require('./')
 
@@ -119,6 +120,22 @@ app.post('/api/data/schedule-all/:p_email', async (req, resp) => {
         resp.send({ result: "No record found.", status: "danger" })
     }
 });
+
+app.post('/api/esp32/activate/:p_email/:no', async (req, res) => {
+    const date = new Date();
+    const local_time = moment(date).format('HH:mm');
+    // console.log(local_time);
+
+    let query = await Schedule.findOne({ p_email: req.params.p_email, s_time: local_time });
+    if (query && req.params.no>=0 && req.params.no<4) {
+        return res.send(query.s_activation[req.params.no])
+    } else if (req.params.no==4) {
+        return res.send(query.s_activation)
+    } else {
+        return res.send('null')
+    }
+})
+
 /*
 app.delete('/product/:id', async (req,resp)=>{
 const result = await Product.deleteOne ({_id:req.params.id})
