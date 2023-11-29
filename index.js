@@ -1,7 +1,9 @@
+require('dotenv').config()
 const express = require('express');
 const cors = require('cors');
 require('./db/config');
 var mongoose = require('mongoose');
+var nodemailer = require('nodemailer'); // for email
 const User = require('./db/User');
 const Schedule = require('./db/Schedule');
 const moment = require('moment'); // for time
@@ -12,6 +14,15 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
+
+// email cred
+var transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.ESP_EMAIL,
+      pass: process.env.ESP_APP_PASSWORD
+    }
+  });
 
 app.post('/api/auth/signup', async (req, resp) => {
     let query = await User.findOne({ "p_email": req.body.p_email })
@@ -121,50 +132,37 @@ app.post('/api/data/schedule-all/:p_email', async (req, resp) => {
     }
 });
 
-app.post('/api/esp32/activate/:p_email/:no', async (req, res) => {
+// get activation for esp
+app.get('/api/esp32/activate/:p_email/:no', async (req, res) => {
     const date = new Date();
     const local_time = moment(date).format('HH:mm');
     // console.log(local_time);
 
     let query = await Schedule.findOne({ p_email: req.params.p_email, s_time: local_time });
+    console.log("iot-activ-query", query)
     if (query && req.params.no>=0 && req.params.no<4) {
         return res.send(query.s_activation[req.params.no])
-    } else if (req.params.no==4) {
+    } else if (query && req.params.no==4) {
         return res.send(query.s_activation)
     } else {
         return res.send('null')
     }
 })
 
-/*
-app.delete('/product/:id', async (req,resp)=>{
-const result = await Product.deleteOne ({_id:req.params.id})
-resp.send(result);
-});
-
-
-
-app.put('/product/:id', async(req,resp)=>{
-    let result = await Product.updateOne(
-        {_id:req.params.id},
-        {
-            $set:req.body
-        }
-    )
-    resp.send(result)
-});
-app.get('/search/:key', async(req,resp)=>{
-    let result = await Product.find({
-        "$or":[
-            {name:{$regex:req.params.key}},
-            {company:{$regex:req.params.key}},
-            {category:{$regex:req.params.key}}
-        ]
-    });
-    resp.send(result)
+// send email no medi taken
+app.get('/api/esp32/send/:p_email', async (req, res) => {
+    // console.log(req.params.p_email)
+    const info = await transporter.sendMail({
+        from: process.env.ESP_EMAIL, // sender address
+        to: req.params.p_email, // list of receivers
+        subject: "Medicine Schedule Alert", // Subject line
+        text: "You missed a medicine schedule.", // plain text body
+      });
+    
+      console.log("Message sent: %s", info.messageId);
+      return res.send('sent')
 })
 
-*/
 const port = 3001;
 app.listen(port);
 console.debug('Server listening on port ' + port);
